@@ -1,46 +1,63 @@
-import time
-import requests
-import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ESTRATEGIA
+from webdriver_manager.chrome import ChromeDriverManager
+import telebot
+import time
+from keep_alive import keep_alive
 
-url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+# Dados do teu bot (VAI CONFIGURAR ISSO DEPOIS NAS VARIÁVEIS DO RAILWAY)
+API_TOKEN = 'SEU_TOKEN_AQUI'
+CHAT_ID = 'SEU_CHAT_ID_AQUI'
 
-def enviar_sinal(entrada, saida):
-    mensagem = f"🎯 SINAL - SINGULAR_AG\n📥 Entrada confirmada\n🎯 Saída: {saida:.2f}x"
-    requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "text": mensagem})
+bot = telebot.TeleBot(API_TOKEN)
 
-def iniciar_bot():
-    options = uc.ChromeOptions()
-    options.add_argument('--headless=new')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
+def setup_driver():
+    options = Options()
+    options.headless = True  # Roda navegador sem abrir tela
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--window-size=1920x1080")
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+    return driver
 
-    driver = uc.Chrome(options=options)
-    driver.get("https://bantubet.com.ao/aviator")
+def enviar_mensagem(texto):
+    bot.send_message(CHAT_ID, texto)
 
-    historico = []
+def analisa_resultado(driver):
+    try:
+        # Aqui você deve ajustar para o local exato do número do resultado no Bac Bo da BantuBet
+        placar = driver.find_element(By.CLASS_NAME, "SUA_CLASSE_AQUI").text
+        return placar
+    except Exception as e:
+        print(f"Erro ao capturar resultado: {e}")
+        return None
 
+def main():
+    keep_alive()
+    enviar_mensagem("❤️ Coração Bac Bo ativo!\nAnalisando BantuBet...")
+
+    driver = setup_driver()
+    driver.get('https://www.bantubet.co.ao/')
+
+    time.sleep(5)  # Aguarda o site carregar
+    
     while True:
-        try:
-            time.sleep(1.5)
-            elementos = driver.find_elements(By.CLASS_NAME, 'coefficient__value')
-            multiplicadores = [float(e.text.replace('x', '').strip()) for e in elementos if e.text.endswith('x')]
+        resultado = analisa_resultado(driver)
+        if resultado:
+            print(f"Resultado capturado: {resultado}")
+            
+            # Lógica para decidir se é aposta segura
+            # (Aqui você pode montar tua estratégia!)
+            # Exemplo fictício:
+            if "Player" in resultado:
+                enviar_mensagem(f"✅ Aposta segura em Player! Resultado: {resultado}")
+            elif "Banker" in resultado:
+                enviar_mensagem(f"✅ Aposta segura em Banker! Resultado: {resultado}")
+            else:
+                enviar_mensagem(f"⚠️ Resultado diferente: {resultado}")
 
-            if multiplicadores:
-                ultimo = multiplicadores[0]
-                historico.insert(0, ultimo)
-                historico = historico[:10]
-
-                ruins = [m for m in historico[:ESTRATEGIA["min_sequencia_ruim"]] if m < 1.50]
-
-                if len(ruins) == ESTRATEGIA["min_sequencia_ruim"]:
-                    print(f"🚀 ENTRADA! Últimos: {historico[:5]}")
-                    enviar_sinal(entrada=True, saida=ESTRATEGIA["ponto_entrada"])
-                    time.sleep(15)
-        except Exception as e:
-            print(f"Erro: {e}")
-            continue
+        time.sleep(10)  # Espera antes de buscar novo resultado
 
 if __name__ == "__main__":
-    iniciar_bot()
+    main()
