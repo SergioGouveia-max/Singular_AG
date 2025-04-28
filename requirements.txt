@@ -1,4 +1,5 @@
-undetected-chromedriver
+flask
 selenium
-python-dotenv
-requests
+webdriver-manager
+pyTelegramBotAPI
+playsound
